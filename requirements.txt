@@ -8,3 +8,5 @@ seaborn
 google-generativeai
 langchain
 langchain-community
+joblib
+
