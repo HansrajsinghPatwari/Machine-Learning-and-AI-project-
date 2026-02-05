@@ -10,11 +10,8 @@ import google.generativeai as genai
 
 
 
-genai.configure(api_key="AIzaSyC08p9aWMot3zZKklnmhyo5H7YzW2REUy4")
+genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
 genmodel = genai.GenerativeModel("gemini-2.5-flash")
-
-
-
 
 
 def generate_answer(prompt):
@@ -64,14 +61,15 @@ Answer:
 
 
 
-
 with open('heart_disease_model.pkl', 'rb') as file:
     model = pickle.load(file)
 
 
 
+
+
 # --- PAGE CONFIGURATION ---
-st.set_page_config(page_title="Heart Risk Predictor",  layout="wide")
+st.set_page_config(page_title="Heart Risk Predictor", layout="wide")
 
 # --- LOAD DATA & MODEL ---
 @st.cache_data
@@ -177,8 +175,46 @@ elif page == "Risk Prediction":
             
             # Submit Button
             submitted = st.form_submit_button("Predict Risk")
+        
+        if submitted:
+            # 1. Create the DataFrame with the EXACT columns and order
+            input_data = pd.DataFrame({
+                 'Age': [age],
+                'Gender': [1 if gender == "Male" else 0], 
+                 'Family_History': [1 if family_hist =="Yes" else 0],
+                 'Diabetes': [1 if diabetes =="No" else 0],
+                 'Hypertension': [1 if hypertension =="Yes" else 0], # Make sure you have this checkbox
+                 'Cholestrol_Level': [chol],
+                  'Triglyceride_Level': [trig],
+                 'Systolic_BP': [sys_bp],
+                 'Diastolic_BP': [dia_bp],
+                 'Alcohol_Consumption': [1 if alcohol=="Yes" else 0],
+                'Physical_Activity': [0 if physical_activity=="No" else 1], # Make sure you have this checkbox
+                'Stress_Level': [0 if stress == "Low" else 1],
+                 'Smoking': [0 if smoking =="No" else 1]
+            })
+            print(input_data)
+            
+            # 2. Make Prediction
+            try:
+                prediction = model.predict(input_data)[0]
+                probability = model.predict_proba(input_data)[0][1] # Probability of Class 1
+                
+                # 3. Show Result
+                st.markdown("---")
+                if prediction == 1:
+                    st.error(f"High Risk Detected! (Probability: {probability:.2%})")
+                    st.write("High Risk of Heart Disease.Please consult a cardiologist immediately.")
+                else:
+                    st.success(f"Low Risk (Probability: {probability:.2%})")
+                    st.write("Keep maintaining a healthy lifestyle!")
 
-        st.markdown("---")
+                    
+            except Exception as e:
+                st.warning("Error during prediction. Please check if input features match the model.")
+                st.write(e)
+        
+                st.markdown("---")
         st.subheader("🧠 AI Health Assistant (Chatbot)")
 
         if "chat_history" not in st.session_state:
@@ -212,42 +248,3 @@ elif page == "Risk Prediction":
                 "user": user_input,
                 "bot": bot_reply
             })
-
-
-        if submitted:
-            # 1. Create the DataFrame with the EXACT columns and order
-            input_data = pd.DataFrame({
-                 'Age': [age],
-                'Gender': [0 if gender == "Male" else 1], 
-                 'Family_History': [0 if family_hist =="No" else 1],
-                 'Diabetes': [0 if diabetes =="No" else 1],
-                 'Hypertension': [0 if hypertension =="No" else 1], # Make sure you have this checkbox
-                 'Cholestrol_Level': [chol],
-                  'Triglyceride_Level': [trig],
-                 'Systolic_BP': [sys_bp],
-                 'Diastolic_BP': [dia_bp],
-                 'Alcohol_Consumption': [0 if alcohol=="No" else 1],
-                'Physical_Activity': [0 if physical_activity=="No" else 1], # Make sure you have this checkbox
-                'Stress_Level': [0 if stress == "Low" else 1],
-                 'Smoking': [0 if smoking =="No" else 1]
-            })
-            print(input_data)
-            
-            # 2. Make Prediction
-            try:
-                prediction = model.predict(input_data)[0]
-                probability = model.predict_proba(input_data)[0][1] # Probability of Class 1
-                
-                # 3. Show Result
-                st.markdown("---")
-                if prediction == 1:
-                    st.error(f"High Risk Detected! (Probability: {probability:.2%})")
-                    st.write("High Risk of Heart Disease.Please consult a cardiologist immediately.")
-                else:
-                    st.success(f"Low Risk (Probability: {probability:.2%})")
-                    st.write("Keep maintaining a healthy lifestyle!")
-
-                    
-            except Exception as e:
-                st.warning("Error during prediction. Please check if input features match the model.")
-                st.write(e)
