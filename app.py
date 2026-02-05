@@ -6,6 +6,63 @@ import plotly.express as px
 import joblib
 import pickle
 
+import google.generativeai as genai
+
+
+
+genai.configure(api_key="AIzaSyC08p9aWMot3zZKklnmhyo5H7YzW2REUy4")
+genmodel = genai.GenerativeModel("gemini-2.5-flash")
+
+
+
+
+
+def generate_answer(prompt):
+    
+
+    response = genmodel.generate_content(
+        prompt,
+        generation_config={
+            "temperature": 0.3
+            
+        }
+    )
+
+    return response.text
+
+def rag_answer(query):
+    
+
+    prompt = f"""
+You are a medical AI assistant.
+Use the patient's health data and prediction result to give personalized advice.
+                 'Age': {age},
+                'Gender': {gender}, 
+                 'Family_History': {family_hist},
+                 'Diabetes': {diabetes},
+                 'Hypertension': {hypertension}, # Make sure you have this checkbox
+                 'Cholestrol_Level': {chol},
+                  'Triglyceride_Level': {trig},
+                 'Systolic_BP': {sys_bp},
+                 'Diastolic_BP': {dia_bp},
+                 'Alcohol_Consumption': {alcohol},
+                'Physical_Activity': {physical_activity}, # Make sure you have this checkbox
+                'Stress_Level': {stress},
+                 'Smoking': {smoking}
+
+
+Question:
+{query}
+Guidelines:
+- Be simple
+- Give lifestyle & preventive advice
+- Mention risk factors if relevant
+Answer:
+"""
+
+    return generate_answer(prompt)
+
+
 
 
 with open('heart_disease_model.pkl', 'rb') as file:
@@ -13,10 +70,8 @@ with open('heart_disease_model.pkl', 'rb') as file:
 
 
 
-
-
 # --- PAGE CONFIGURATION ---
-st.set_page_config(page_title="Heart Risk Predictor", page_icon="❤️", layout="wide")
+st.set_page_config(page_title="Heart Risk Predictor",  layout="wide")
 
 # --- LOAD DATA & MODEL ---
 @st.cache_data
@@ -88,7 +143,7 @@ if page == "Dashboard (EDA)":
 
 # --- PAGE 2: PREDICTION (User Interface) ---
 elif page == "Risk Prediction":
-    st.title("❤️ Heart Attack Risk Predictor")
+    st.title(" Heart Attack Risk Predictor")
     
     if model is None:
         st.error("⚠️ Model file not found. Please save your trained model as 'heart_disease_model.pkl' first.")
@@ -122,20 +177,56 @@ elif page == "Risk Prediction":
             
             # Submit Button
             submitted = st.form_submit_button("Predict Risk")
-        
+
+        st.markdown("---")
+        st.subheader("🧠 AI Health Assistant (Chatbot)")
+
+        if "chat_history" not in st.session_state:
+            st.session_state.chat_history = []
+
+        # display previous chats
+        for chat in st.session_state.chat_history:
+            with st.chat_message("user"):
+                st.write(chat["user"])
+            with st.chat_message("assistant"):
+                st.write(chat["bot"])
+
+        # input box
+        user_input = st.chat_input("Ask about your health, risk, or lifestyle advice...")
+
+        if user_input:
+            # show user message
+            with st.chat_message("user"):
+                st.write(user_input)
+
+            # generate RAG answer
+            with st.spinner("Thinking..."):
+                bot_reply = rag_answer(user_input)
+
+            # show bot message
+            with st.chat_message("assistant"):
+                st.write(bot_reply)
+
+            # store chat
+            st.session_state.chat_history.append({
+                "user": user_input,
+                "bot": bot_reply
+            })
+
+
         if submitted:
             # 1. Create the DataFrame with the EXACT columns and order
             input_data = pd.DataFrame({
                  'Age': [age],
-                'Gender': [1 if gender == "Male" else 0], 
-                 'Family_History': [1 if family_hist =="Yes" else 0],
-                 'Diabetes': [1 if diabetes =="No" else 0],
-                 'Hypertension': [1 if hypertension =="Yes" else 0], # Make sure you have this checkbox
+                'Gender': [0 if gender == "Male" else 1], 
+                 'Family_History': [0 if family_hist =="No" else 1],
+                 'Diabetes': [0 if diabetes =="No" else 1],
+                 'Hypertension': [0 if hypertension =="No" else 1], # Make sure you have this checkbox
                  'Cholestrol_Level': [chol],
                   'Triglyceride_Level': [trig],
                  'Systolic_BP': [sys_bp],
                  'Diastolic_BP': [dia_bp],
-                 'Alcohol_Consumption': [1 if alcohol=="Yes" else 0],
+                 'Alcohol_Consumption': [0 if alcohol=="No" else 1],
                 'Physical_Activity': [0 if physical_activity=="No" else 1], # Make sure you have this checkbox
                 'Stress_Level': [0 if stress == "Low" else 1],
                  'Smoking': [0 if smoking =="No" else 1]
